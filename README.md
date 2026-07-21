@@ -1,30 +1,12 @@
----
-title: SplatWorld
-emoji: 🌊
-colorFrom: indigo
-colorTo: pink
-sdk: gradio
-sdk_version: 5.49.1
-app_file: app.py
-pinned: false
-license: cc-by-nc-4.0
-tags:
-  - gabor
-  - wave-optics
-  - vae
-  - generative
-  - faces
-  - celeba
-  - onnx
----
-
-<!-- ^^^ Hugging Face Space header. On GitHub, delete this block (or keep it —
-     GitHub renders it as an empty comment). Adjust sdk_version to a version
-     Hugging Face currently offers if the build complains. -->
-
 # SplatWorld
 
+Running live at huggingface: 
+
+https://huggingface.co/spaces/Aluode/SplatWorld
+
 **202,599 CelebA faces compressed into one 7.2 MB decoder — and it doesn't store a single pixel.**
+
+![pic3](pic3.png)
 
 SplatWorld is a small VAE whose decoder doesn't paint images. It maps a 128‑dimensional point `z` to **256 Gabor wave packets** and lets their interference *become* the picture. A face is a phase‑locked standing wave. The "fire" you see drifting between faces is those same waves coming unlocked. This repo gives you two ways to walk around inside that world.
 
@@ -44,6 +26,8 @@ Both need `splat_decoder.onnx` (7.2 MB) sitting next to them. The Gradio app sti
 ---
 
 ## Quick start (browser app)
+
+![pic2](pic2.png)
 
 ```bash
 pip install -r requirements.txt
@@ -67,6 +51,8 @@ Desktop keys: `1` zoom · `2` surf · `3` atlas · `H` theory · `B` gallery · 
 ---
 
 ## The atlas (`splat_atlas.py`)
+
+![pic3](pic3.png)
 
 The atlas is a heavier, separate tool. It systematically **bakes thousands of thumbnails to disk** (with every `z` saved) so you can survey the whole space at a glance and click any tile back to a full‑res face.
 
