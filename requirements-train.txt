@@ -1,0 +1,5 @@
+# Training only (splat_trainer2.py). Needs a CUDA GPU for real speed.
+torch>=2.1        # install the build matching your CUDA from pytorch.org
+numpy>=1.24
+opencv-python>=4.9
+onnxruntime>=1.17 # for the --smoke cv.dnn/torch parity check on OpenCV 5

@@ -36,6 +36,8 @@ SplatWorld is a small VAE whose decoder doesn't paint images. It maps a 128‑di
 |---|---|---|
 | **`app.py`** (Gradio) | `python app.py` → opens in a browser | Runs anywhere, including **Hugging Face Spaces**. Surf with sliders, scrub the zoom, render a zoom video, sample a gallery. This is the Space entry point. |
 | **`explore_desktop.py`** (OpenCV) | `python explore_desktop.py` | The richer **local** tool: a live window with real mouse‑drag surfing and a hands‑free automated zoom. Needs a display, so it can't run on Spaces. |
+| **`splat_atlas.py`** | `python splat_atlas.py --dump` then `--browse` | Bakes thousands of thumbnails to disk to survey the whole latent space; click any tile back to a full‑res face. |
+| **`splat_trainer2.py`** | `python splat_trainer2.py --data_dir …` | Rebuild the model from your own faces (needs PyTorch + a CUDA GPU). See *Train your own model* below. |
 
 Both need `splat_decoder.onnx` (7.2 MB) sitting next to them. The Gradio app still boots without it (showing mock noise), so a Space never hard‑fails on startup — but add the model to see faces.
 
@@ -121,6 +123,57 @@ The status line under the title tells you which backend loaded
 
 **The Space shows mock noise.** `splat_decoder.onnx` isn't next to `app.py`. Add
 it (commit it to the Space repo, or use Git LFS).
+
+---
+
+## Train your own model (`splat_trainer2.py`)
+
+The trainer is included so you can rebuild `splat_decoder.onnx` from your own
+folder of faces (or retrain on CelebA). It needs **PyTorch and a CUDA GPU** for
+real speed; the model here was trained on a 12 GB card.
+
+```bash
+pip install -r requirements-train.txt      # torch build must match your CUDA
+
+# 1) train  (first run caches the dataset once, then trains from the GPU-resident tensor)
+python splat_trainer2.py --data_dir /path/to/faces --beta 0.0005
+
+# 2) export the trained checkpoint to the ONNX the explorers use
+python splat_trainer2.py --export          # -> splat_decoder.onnx
+
+# 3) sanity-check the whole pipeline on CPU, no data or GPU needed
+python splat_trainer2.py --smoke
+```
+
+How it's fast: it **caches** the folder to a `uint8` array once (decoding 200k
+JPEGs every epoch was the real bottleneck), keeps the whole **dataset resident on
+the GPU** (≈5.6 GB at 96px, no DataLoader, no per-step host→device copy), and
+trains in **gradient steps** with a vectorized renderer. `--smoke` was verified
+end-to-end (loop-vs-vectorized renderer parity, a short train, export, and
+`cv.dnn`↔torch agreement to 1e-4 across a batched dynamic axis).
+
+Useful flags (defaults in brackets):
+
+| flag | meaning |
+|---|---|
+| `--data_dir` [`./faces`] | folder of images (jpg/png/bmp/webp), center-cropped and resized |
+| `--image_size` [`96`] | render resolution — bigger costs VRAM fast |
+| `--num_packets` [`256`] | Gabor atoms per image |
+| `--steps` [`30000`] · `--batch` [`96`] · `--lr` [`3e-4`] | training length / batch / learning rate |
+| `--beta` [`1.0`] · `--beta_warmup_steps` [`3000`] | KL weight and its ramp. **Low β (e.g. `0.0005`) is what gives varied faces**; high β collapses to a mean face |
+| `--gamma_floater` [`0.02`] · `--sigma_ref` [`0.03`] | anti-"floater" penalty: taxes envelopes thinner than `sigma_ref` (`0` disables) |
+| `--checkpointing` | halve VRAM, double renderer compute — only if you OOM |
+| `--out` [`./runs/splat2`] | where `model2.pt` and the recon/sample grids are written |
+
+The export always writes the input/output names (`z_latent` / `rendered_image`,
+opset 17, dynamic batch) that every tool in this repo expects, so a freshly
+trained model is a drop-in replacement.
+
+> **Note on ONNX + OpenCV 5.** The export uses a dynamic batch axis. OpenCV 5's
+> dnn importer can't parse it, so the explorers load the model with
+> **onnxruntime** (see Troubleshooting). The trainer's own `--smoke` uses
+> `cv.dnn` on a tiny graph and passes; the full 256-packet model needs
+> onnxruntime at inference time.
 
 ---
 
